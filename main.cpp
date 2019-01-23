@@ -17,10 +17,36 @@ static void signalHandler(int signum) {
 	std::cout << "\nInterrupt" << std::endl;
 	G_stop = true;
 }
-
+static void displayHelp () {
+	std::cout << " ==================== H E L P =================== " << std::endl;
+	std::cout << "Available options: " << std::endl;
+	std::cout << "\t -noCamera0 \t// Disable camera 0." << std::endl;   
+	std::cout << "\t -noCamera1 \t// Disable camera 1." << std::endl;   
+	std::cout << "\t -noStream  \t// Disable streaming." << std::endl;   
+	std::cout << "\t -noRecord  \t// Disable recording." << std::endl;   
+	std::cout << " ================================================ " << std::endl;
+}
+static bool existsOption(int argc, char* argv[], const std::string& option) {
+	for(int i = 1; i < argc; i++) {
+		if(std::string(argv[i]) == option)
+			return true;
+	}
+	return false;
+}
 
 // Functions
-int main() {	
+int main(int argc, char* argv[]) {	
+	// --------------- Options -------------	
+	if(existsOption(argc, argv, "-help")) {
+		displayHelp();
+		return 0;
+	}
+	
+	bool enableCamera0 = !existsOption(argc, argv, "-noCamera0");
+	bool enableCamera1 = !existsOption(argc, argv, "-noCamera1");
+	bool enableStream  = !existsOption(argc, argv, "-noStream");
+	bool enableRecord  = !existsOption(argc, argv, "-noRecord");
+	
 	// --------------- Interface -------------	
 	signal(SIGINT, signalHandler);
 	
@@ -28,8 +54,11 @@ int main() {
 	DeviceMT device0("/dev/video0");
 	DeviceMT device1("/dev/video1");
 	
-	device0.open();
-	device1.open();
+	if(enableCamera0)
+		device0.open();
+		
+	if(enableCamera1)
+		device1.open();
 	
 	// ---------------- Video Streamer ----------------
 	ManagerConnection managerConnection;
@@ -38,15 +67,21 @@ int main() {
 	Dk::VideoStreamWriter videoStreamer0(managerConnection, 3000);	
 	Dk::VideoStreamWriter videoStreamer1(managerConnection, 3001);
 	
-	videoStreamer0.startBroadcast(device0.getSize(), 3);
-	videoStreamer1.startBroadcast(device1.getSize(), 3);
+	if(device0.isOpen() && enableStream)
+		videoStreamer0.startBroadcast(device0.getSize(), 3);
+		
+	if(device1.isOpen() && enableStream)
+		videoStreamer1.startBroadcast(device1.getSize(), 3);
 	
 	// --------------- Video Recorder -------------
 	MovieWriter movieWriter0;
 	MovieWriter movieWriter1;
 	
-	movieWriter0.start("Video0_" + Chronometre::date(), device0.getSize(), device0.getFps());
-	movieWriter1.start("Video1_" + Chronometre::date(), device1.getSize(), device1.getFps());
+	if(device0.isOpen() && enableRecord)
+		movieWriter0.start("Video0_" + Chronometre::date(), device0.getSize(), device0.getFps());
+		
+	if(device1.isOpen() && enableRecord)
+		movieWriter1.start("Video1_" + Chronometre::date(), device1.getSize(), device1.getFps());
 	
 
 	// --------------- Looping -------------
@@ -64,14 +99,12 @@ int main() {
 			
 			if(!frame0.empty()) {
 				// - TCP
-				if(videoStreamer0.isValide()) {
+				if(videoStreamer0.isValide())
 					videoStreamer0.update(frame0);	
-				}
 					
 				// - Recording
-				if(movieWriter0.isRecording()) {
+				if(movieWriter0.isRecording())
 					movieWriter0.saveFrame(frame0);	
-				}	
 			}
 		}
 		
@@ -81,14 +114,12 @@ int main() {
 			
 			if(!frame1.empty()) {
 				// - TCP
-				if(videoStreamer1.isValide()) {
+				if(videoStreamer1.isValide())
 					videoStreamer1.update(frame1);	
-				}
 					
 				// - Recording
-				if(movieWriter1.isRecording()) {
+				if(movieWriter1.isRecording())
 					movieWriter1.saveFrame(frame1);	
-				}	
 			}
 		}
 		
@@ -98,13 +129,19 @@ int main() {
 	}
 
 	// --------------- The end -------------
-	device0.close();
-	movieWriter0.stop();
-	videoStreamer0.release();
+	if(device0.isOpen())
+		device0.close();
+	if(movieWriter0.isRecording())
+		movieWriter0.stop();
+	if(videoStreamer0.isValide())
+		videoStreamer0.release();
 	
-	device1.close();
-	movieWriter1.stop();
-	videoStreamer1.release();
+	if(device1.isOpen())
+		device1.close();
+	if(movieWriter1.isRecording())
+		movieWriter1.stop();
+	if(videoStreamer1.isValide())
+		videoStreamer1.release();
 	
 	std::cout << std::endl << "Exit success" << std::endl;
 	return 0;
