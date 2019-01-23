@@ -33,13 +33,19 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	if(_isOpen)
 		release();
 	
+	int resAction = -1;
+	
 	_fileName 	= fileName + ".mp4";
 	_size 		= size;
 	_fps 		= fps;
 	
 	// - Output
 	// Stream
-	avformat_alloc_output_context2(&_fc, NULL, NULL, _fileName.c_str());
+	resAction = avformat_alloc_output_context2(&_fc, NULL, NULL, _fileName.c_str());
+	if(resAction < 0) {
+		std::cout << "Couldn't alloc output contex" << std::endl;
+		return false;
+	}
 	
 	_stream = avformat_new_stream(_fc, 0);
 	_codec 	= avcodec_find_encoder_by_name("libx264");
@@ -57,10 +63,20 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	_cc->framerate 	= (AVRational){(int)_fps, 1};
 	_cc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 			
-	avcodec_open2(_cc, _codec, &_opt);
+	resAction = avcodec_open2(_cc, _codec, &_opt);
+	if(resAction < 0) {
+		std::cout << "Couldn't open codec" << std::endl;
+		return false;
+	}
+	
 	_stream->codec = _cc;
 	
-	avio_open(&_fc->pb, _fileName.c_str(), AVIO_FLAG_WRITE);
+	resAction = avio_open(&_fc->pb, _fileName.c_str(), AVIO_FLAG_WRITE);
+	if(resAction < 0) {
+		std::cout << "Couldn't open format context" << std::endl;
+		return false;
+	}
+	
 	avformat_write_header(_fc, &_opt);
 	av_dict_free(&_opt);
 	
@@ -74,7 +90,12 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	_inFrame->width 	= size.width;
 	_inFrame->height 	= size.height;
 	_inFrame->format 	= AV_PIX_FMT_YUVJ422P;	
-	av_frame_get_buffer(_inFrame, 1);
+	
+	resAction = av_frame_get_buffer(_inFrame, 1);
+	if(resAction < 0) {
+		std::cout << "Couldn't alloc frame memory" << std::endl;
+		return false;
+	}
 	
 	_isOpen = true;
 	
@@ -82,7 +103,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 }
 bool Recorder::release() {
 	if(!_isOpen)
-		return true;
+		return false;
 	
 	// delayed frames
 	while(_gotOutput) {
@@ -114,6 +135,11 @@ bool Recorder::release() {
 }
 
 bool Recorder::write(Gb::Frame& frame) {
+	if(!_isOpen)
+		return false;
+		
+	int resAction = -1;
+	
 	// Read frame
 	AVPacket inPacket;
 	av_init_packet(&inPacket);
@@ -121,7 +147,11 @@ bool Recorder::write(Gb::Frame& frame) {
 	inPacket.data = &frame.buffer[0];
 	inPacket.size = (int)frame.length();
 	
-	avcodec_decode_video2(_inCc, _inFrame, &_gotInput, &inPacket);
+	resAction = avcodec_decode_video2(_inCc, _inFrame, &_gotInput, &inPacket);
+	if(resAction < 0) {
+		std::cout << "Couldn't decode packet" << std::endl;
+		return false;
+	}
 	
 	// Write
 	av_init_packet(&_packetOut);
@@ -129,7 +159,11 @@ bool Recorder::write(Gb::Frame& frame) {
 	_packetOut.size 	 = 0;
 	_inFrame->pts 		 = _iFrame;
 	
-	avcodec_encode_video2(_cc, &_packetOut, _inFrame, &_gotOutput);
+	resAction = avcodec_encode_video2(_cc, &_packetOut, _inFrame, &_gotOutput);
+	if(resAction < 0) {
+		std::cout << "Couldn't encode frame" << std::endl;
+		return false;
+	}
 	
 	if(_gotOutput) {
 		fflush(stdout);
