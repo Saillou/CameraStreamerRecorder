@@ -17,7 +17,7 @@ namespace Dk {
 	class VideoStreamWriter {
 	public:
 		// Constructors
-		VideoStreamWriter(ManagerConnection& managerConnection, const int port);
+		VideoStreamWriter(ManagerConnection& managerConnection, const int port, const std::string& name = "WiFi device");
 		~VideoStreamWriter();
 		
 		// Methods

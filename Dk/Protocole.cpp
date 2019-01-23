@@ -13,7 +13,8 @@ FormatStream::FormatStream(int h, int w, int c) :
 	brightness(-1),
 	contrast(-1),
 	exposure(-1),
-	autoExposure(0)
+	autoExposure(0),
+	name("Device")
 {	
 	/* Nothing else to do. */	
 }
@@ -37,6 +38,7 @@ void FormatStream::fromCmd(const CmdMessage& cmd) {
 	contrast 		= Message::To_double(cmd.getCommand(CMD_CONTRAST).second);
 	exposure 		= Message::To_double(cmd.getCommand(CMD_EXPOSURE).second);	
 	autoExposure	= Message::To_double(cmd.getCommand(CMD_AUTO_EXPOSURE).second);	
+	name			= cmd.getCommand(CMD_NAME).second;
 }
 const CmdMessage FormatStream::toCmd() const {
 	CmdMessage cmd;
@@ -51,6 +53,7 @@ const CmdMessage FormatStream::toCmd() const {
 	cmd.addCommand(CMD_CONTRAST,		std::to_string(contrast));
 	cmd.addCommand(CMD_EXPOSURE,		std::to_string(exposure));
 	cmd.addCommand(CMD_AUTO_EXPOSURE,	std::to_string(autoExposure));
+	cmd.addCommand(CMD_NAME,			name);
 	
 	return cmd;
 }

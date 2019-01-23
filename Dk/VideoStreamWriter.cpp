@@ -4,13 +4,14 @@ using namespace Dk;
 using namespace Protocole;
 
 // Constructors
-VideoStreamWriter::VideoStreamWriter(ManagerConnection& managerConnection, const int port) :
+VideoStreamWriter::VideoStreamWriter(ManagerConnection& managerConnection, const int port, const std::string& name) :
 	_server(managerConnection.createServer(Socket::TCP, Socket::BLOCKING, port)),
 	_valide(false),
 	_threadClients(nullptr),
 	_format(/*Height*/0, /*Width*/0, /*Channels*/0),
 	_frameToSend()
 {
+	_format.name = name;
 	_valide = _server != nullptr;
 }
 VideoStreamWriter::~VideoStreamWriter() {

@@ -159,6 +159,7 @@ namespace Protocole {
 		double contrast;
 		double exposure;
 		double autoExposure;
+		std::string name;
 	};
 }
 
