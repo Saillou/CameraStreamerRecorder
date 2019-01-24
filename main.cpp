@@ -11,7 +11,7 @@
 
 // Globals
 bool G_stop = false;
-
+std::string G_experimentId = "";
 
 static void signalHandler(int signum) {
 	std::cout << "\nInterrupt" << std::endl;
@@ -35,7 +35,19 @@ static bool existsOption(int argc, char* argv[], const std::string& option) {
 }
 
 static void onCalibration(int idClient, const Protocole::BinMessage& msg) {
-	std::cout << "Calibration received" << std::endl;
+	std::cout << "Calibration received." << std::endl;
+	if(msg.getSize() > 0) {
+		//~ std::vector<char> rawKey = msg.getData();
+		//~ rawKey.push_back(0); // null terminated
+		
+		//~ std::cout << "\t - Experiment key: " << G_experimentId << std::endl;
+		//~ std::cout << "\t - Calibration Key: " << std::string(rawKey.data()) << std::endl;
+		
+		std::ofstream fileCalib;
+		fileCalib.open("Calibration_"+G_experimentId+".bin", std::ios::binary | std::ios::trunc);
+		fileCalib.write(msg.getData().data(), msg.getSize());
+		fileCalib.close();
+	}
 }
 
 
@@ -54,7 +66,8 @@ int main(int argc, char* argv[]) {
 	
 	// --------------- Interface -------------	
 	signal(SIGINT, signalHandler);
-	
+	G_experimentId = Chronometre::date();
+		
 	// --------------- Devices -------------
 	DeviceMT device0("/dev/video0");
 	DeviceMT device1("/dev/video1");
@@ -77,7 +90,7 @@ int main(int argc, char* argv[]) {
 		videoStreamer0.addCallback(Protocole::BIN_CLBT, onCalibration);
 	}
 		
-	if(device1.isOpen() && enableStream)
+	if(device1.isOpen() && enableStream) 
 		videoStreamer1.startBroadcast(device1.getSize(), 3);
 		
 	
@@ -85,13 +98,12 @@ int main(int argc, char* argv[]) {
 	// --------------- Video Recorder -------------
 	MovieWriter movieWriter0;
 	MovieWriter movieWriter1;
-	std::string videoNameId = Chronometre::date();
 	
 	if(device0.isOpen() && enableRecord)
-		movieWriter0.start("Video0_" + videoNameId, device0.getSize(), device0.getFps());
+		movieWriter0.start("Video0_" + G_experimentId, device0.getSize(), device0.getFps());
 		
 	if(device1.isOpen() && enableRecord)
-		movieWriter1.start("Video1_" + videoNameId, device1.getSize(), device1.getFps());
+		movieWriter1.start("Video1_" + G_experimentId, device1.getSize(), device1.getFps());
 	
 
 	// --------------- Looping -------------

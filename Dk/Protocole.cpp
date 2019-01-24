@@ -162,7 +162,7 @@ bool BinMessage::isValide() const {
 bool BinMessage::set(const size_t codeAction, const size_t sizeData, const char* data) {
 	_codeAction = codeAction;
 	_dataSize 	= sizeData;
-	_data 			= std::vector<char>(data, data + sizeData);
+	_data 		= std::vector<char>(data, data + sizeData);
 	
 	return isValide();
 }
