@@ -11,6 +11,7 @@ namespace Protocole {
 	static const size_t BIN_SIZE = 1397316165;
 	static const size_t BIN_READ = 1380270404;
 	static const size_t BIN_QUIT = 1364543828;
+	static const size_t BIN_CLBT = 1129071188;
 	
 	static const std::string CMD_CHANNEL 	= "CHANNEL";
 	static const std::string CMD_HEIGHT 	= "HEIGHT";
