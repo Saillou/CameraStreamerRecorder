@@ -52,13 +52,13 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	_fmt 	= av_guess_format("mp4", NULL, NULL);
 	
 	// Codec
-	av_dict_set(&_opt, "preset", "faster", 0); // Speed over size
-	av_dict_set(&_opt, "crf", "30", 0); // Quality 1(best) - 51(worst)
+	av_dict_set(&_opt, "preset", "ultrafast", 0); // Speed over size
+	av_dict_set(&_opt, "crf", "25", 0); // Quality 0(best) - 51(worst)
 	
 	_cc 			= avcodec_alloc_context3(_codec);
 	_cc->width 		= _size.width;
 	_cc->height 	= _size.height;
-	_cc->pix_fmt	= AV_PIX_FMT_YUVJ422P;
+	_cc->pix_fmt	= AV_PIX_FMT_YUV420P;
 	_cc->time_base 	= (AVRational){1, (int)_fps};
 	_cc->framerate 	= (AVRational){(int)_fps, 1};
 	_cc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -89,7 +89,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	_inFrame 			= av_frame_alloc();
 	_inFrame->width 	= size.width;
 	_inFrame->height 	= size.height;
-	_inFrame->format 	= AV_PIX_FMT_YUVJ422P;	
+	_inFrame->format 	= AV_PIX_FMT_YUV420P;	
 	
 	resAction = av_frame_get_buffer(_inFrame, 1);
 	if(resAction < 0) {
