@@ -19,6 +19,8 @@ VideoStreamWriter::~VideoStreamWriter() {
 	
 	if(_threadClients != nullptr)
 		delete _threadClients;
+		
+	_pCallbacks.clear();
 }
 
 // Methods
@@ -54,6 +56,7 @@ void VideoStreamWriter::_handleClient(int idClient) {
 			break;	// Error, better to disconnect
 
 		// Treat client
+		_invokeCallbacks(idClient, msg);
 		clientWantToQuit = _treatClient(idClient, msg);
 	} while(!clientWantToQuit);
 	
@@ -95,9 +98,16 @@ bool VideoStreamWriter::_treatClient(const int idClient, const BinMessage& msgIn
 		break;
 	}
 	
+	
 	return clientWantToQuit;
 }
-
+void VideoStreamWriter::_invokeCallbacks(int idClient, const Protocole::BinMessage& msgIn) {
+	// Check callbacks
+	auto callback = _pCallbacks.find(msgIn.getAction());
+	
+	if(callback != _pCallbacks.end())
+		callback->second(idClient, msgIn);	
+}
 
 const Protocole::FormatStream& VideoStreamWriter::startBroadcast(const Gb::Size& size, int channels) {	
 	// Not working
@@ -159,6 +169,15 @@ void VideoStreamWriter::release() {
 	if(_threadClients != nullptr)
 		if(_threadClients->joinable())
 			_threadClients->join();		
+}
+
+bool VideoStreamWriter::addCallback(const size_t BIN_CODE, std::function<void(int, const Protocole::BinMessage&)> f) {
+	_pCallbacks[BIN_CODE] = f;
+	return true;
+}
+bool VideoStreamWriter::removeCallback(const size_t BIN_CODE) {
+	_pCallbacks.erase(BIN_CODE);
+	return true;
 }
 
 // Getters

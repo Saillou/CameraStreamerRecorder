@@ -34,6 +34,11 @@ static bool existsOption(int argc, char* argv[], const std::string& option) {
 	return false;
 }
 
+static void onCalibration(int idClient, const Protocole::BinMessage& msg) {
+	std::cout << "Calibration received" << std::endl;
+}
+
+
 // Functions
 int main(int argc, char* argv[]) {	
 	// --------------- Options -------------	
@@ -64,24 +69,29 @@ int main(int argc, char* argv[]) {
 	ManagerConnection managerConnection;
 	managerConnection.initialize();
 	
-	Dk::VideoStreamWriter videoStreamer0(managerConnection, 3000);	
-	Dk::VideoStreamWriter videoStreamer1(managerConnection, 3001);
+	Dk::VideoStreamWriter videoStreamer0(managerConnection, 3000, "WiFi Device - 0");	
+	Dk::VideoStreamWriter videoStreamer1(managerConnection, 3001, "WiFi Device - 1");
 	
-	if(device0.isOpen() && enableStream)
+	if(device0.isOpen() && enableStream) {
 		videoStreamer0.startBroadcast(device0.getSize(), 3);
+		videoStreamer0.addCallback(Protocole::BIN_CLBT, onCalibration);
+	}
 		
 	if(device1.isOpen() && enableStream)
 		videoStreamer1.startBroadcast(device1.getSize(), 3);
+		
+	
 	
 	// --------------- Video Recorder -------------
 	MovieWriter movieWriter0;
 	MovieWriter movieWriter1;
+	std::string videoNameId = Chronometre::date();
 	
 	if(device0.isOpen() && enableRecord)
-		movieWriter0.start("Video0_" + Chronometre::date(), device0.getSize(), device0.getFps());
+		movieWriter0.start("Video0_" + videoNameId, device0.getSize(), device0.getFps());
 		
 	if(device1.isOpen() && enableRecord)
-		movieWriter1.start("Video1_" + Chronometre::date(), device1.getSize(), device1.getFps());
+		movieWriter1.start("Video1_" + videoNameId, device1.getSize(), device1.getFps());
 	
 
 	// --------------- Looping -------------
