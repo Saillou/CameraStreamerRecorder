@@ -1,8 +1,8 @@
 #include "Server.hpp"
 
 // Constructors
-Server::Server(const unsigned short port, const int maxPending) : 
-	Socket("", port), 
+Server::Server(const IpAdress& ipGateway, const int maxPending) :
+Socket(ipGateway),
 	_maxPending(maxPending) 
 {
 	// Nothing else to do
@@ -14,32 +14,43 @@ Server::~Server() {
 
 // Methods
 bool Server::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	{
-	_type = type;
-	_mode = mode;
-	
-	// Type define id
-	if(_type == NONE)
+	// Init
+	bool criticError = !_initializeSocketId(type, mode);
+	if (criticError)
 		return false;
-	else if(_type == TCP)
-		_idSocket = (int)socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	else if(_type == UDP)
-		_idSocket = (int)socket(PF_INET, SOCK_DGRAM, 0);
-	else {
-		_type = NONE;
-		std::cout << "[Servers] Type not recognized." << std::endl;
+
+	// Create echo
+	struct sockaddr* serverEcho;
+	size_t size = 0;
+
+	if (_ipType == IpAdress::INVALID_IP) {
 		return false;
 	}
-	
-	// Create echo
-	struct sockaddr_in  serverEcho;
-	memset(&serverEcho, 0, sizeof(serverEcho));
-	
-	serverEcho.sin_family		= AF_INET;
-	serverEcho.sin_addr.s_addr	= htonl(INADDR_ANY);
-	serverEcho.sin_port			= htons(_port);	
+	else if (_ipType == IpAdress::IP_V4) {
+		struct sockaddr_in serverEchoV4;
+		memset(&serverEchoV4, 0, sizeof(serverEchoV4));
+		
+		serverEchoV4.sin_family = AF_INET;
+		serverEchoV4.sin_addr.s_addr = htonl(INADDR_ANY);
+		serverEchoV4.sin_port = htons(_ipGateway.getPort());
+		
+		serverEcho = (struct sockaddr*)&serverEchoV4;
+		size = sizeof(serverEchoV4);
+	}
+	else if (_ipType == IpAdress::IP_V6) {
+		struct sockaddr_in6 serverEchoV6;
+		memset(&serverEchoV6, 0, sizeof(serverEchoV6));
+		
+		serverEchoV6.sin6_family = AF_INET6;
+		serverEchoV6.sin6_addr = in6addr_any;
+		serverEchoV6.sin6_port = htons(_ipGateway.getPort());
+		
+		serverEcho = (struct sockaddr*)&serverEchoV6;
+		size = sizeof(serverEchoV6);
+	}
 	
 	// Try bind
-	if(bind(_idSocket, (struct sockaddr*)&serverEcho, sizeof(serverEcho)) == SOCKET_ERROR) {
+	if (bind(_idSocket, serverEcho, size) == SOCKET_ERROR) {
 		std::cout << "Could not bind adress." << std::endl;
 		return false;
 	}

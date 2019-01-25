@@ -1,11 +1,11 @@
 #include "Socket.hpp"
 
 // Constructors
-Socket::Socket(const std::string& ipAdress, const unsigned short port) :
-	_ipAdress(ipAdress),
-	_port(port),
+Socket::Socket(const IpAdress& ipGateway) :
+	_ipGateway(ipGateway),
 	_idSocket(-1),
-	_type(NONE)
+	_type(NONE),
+	_ipType(ipGateway.getType())
 {
 	// Nothing else to do
 }
@@ -25,36 +25,47 @@ Socket::~Socket() {
 
 // Methods
 bool Socket::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	{
-	// Type define id
-	_type = type;	
-	_mode = mode;
-	
-	if(_type == NONE) 
+	// Init
+	bool success = _initializeSocketId(type, mode);
+	if (!success)
 		return false;
-	else if(_type == TCP)
-		_idSocket = static_cast<int>(socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
-	else if(_type == UDP) 
-		_idSocket = static_cast<int>(socket(PF_INET, SOCK_DGRAM, 0));
-	else {
-		_type = NONE;
-		std::cout << "[Socket] Type not recognized." << std::endl;
+
+	// Create echo
+	struct sockaddr* clientEcho;
+	size_t size = 0;
+
+	if (_ipType == IpAdress::INVALID_IP) {
 		return false;
 	}
-	
-	// Create echo
-	struct sockaddr_in clientEcho;
-	memset(&clientEcho, 0, sizeof(clientEcho));
-	
-	clientEcho.sin_addr.s_addr	= inet_addr(_ipAdress.c_str());
-	clientEcho.sin_port				= htons(_port);	
-	clientEcho.sin_family		 	= AF_INET;
+	else if (_ipType == IpAdress::IP_V4) {
+		struct sockaddr_in clientEchoV4;
+		memset(&clientEchoV4, 0, sizeof(clientEchoV4));
+		
+		clientEchoV4.sin_family 		= AF_INET;
+		clientEchoV4.sin_addr.s_addr 	= inet_addr(_ipGateway.toString().c_str());
+		clientEchoV4.sin_port 			= htons(_ipGateway.getPort());
+		
+		clientEcho = (struct sockaddr*)&clientEchoV4;
+		size = sizeof(clientEchoV4);
+	}
+	else if (_ipType == IpAdress::IP_V6) {
+		struct sockaddr_in6 clientEchoV6;
+		memset(&clientEchoV6, 0, sizeof(clientEchoV6));
+		
+		clientEchoV6.sin6_family = AF_INET6;
+		memcpy(clientEchoV6.sin6_addr.s6_addr, _ipGateway.getChars().data(), 16);
+		clientEchoV6.sin6_port = htons(_ipGateway.getPort());
+		
+		clientEcho = (struct sockaddr*)&clientEchoV6;
+		size = sizeof(clientEchoV6);
+	}
 	
 	// Use the mode defined
 	_changeMode(mode);
 	
 	// Try to connect	
-	if(connect(_idSocket, (struct sockaddr *)&clientEcho, sizeof(clientEcho)) == SOCKET_ERROR) {
-		bool criticError = true;
+	if (connect(_idSocket, clientEcho, size) == SOCKET_ERROR) {
+		success = false;
 		
 #ifdef _WIN32
 		int error = WSAGetLastError();
@@ -63,7 +74,7 @@ bool Socket::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 			case WSAEWOULDBLOCK: // Only triggered during not_blocking operations				
 				{ // Wait to be connected and check writable
 					auto info = waitForAccess(30);
-					criticError = info.errorCode <= 0 || !info.writable;
+					success = info.errorCode > 0 && info.writable;
 				}
 			break;
 			
@@ -73,7 +84,7 @@ bool Socket::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 			
 			case WSAEISCONN:
 				std::cout << "Socket is already connected." << std::endl;
-				criticError = false;
+				success = true;
 			break;
 			
 			case WSAECONNREFUSED:
@@ -86,15 +97,14 @@ bool Socket::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 		}
 #endif
 		
-		if(criticError) {
+		if (!success)
 			return false;
-		}
 	}
 	
 	// Use the mode defined (may have been changed with accept() from server)
 	_changeMode(mode);
 	
-	return true;
+	return success;
 }
 bool Socket::read(Protocole::BinMessage& msg, int idSocket) const {
 	msg.clear();
@@ -217,11 +227,8 @@ Socket::Accessiblity Socket::waitForAccess(unsigned long timeoutMs, int idSocket
 
 
 // Getters
-const std::string& Socket::getIpAdress() const {
-	return _ipAdress;
-}
-const unsigned short& Socket::getPort() const {
-	return _port;
+const IpAdress& Socket::getIpAdress() const {
+	return _ipGateway;
 }
 const int& Socket::getId() const {
 	return _idSocket;
@@ -230,6 +237,36 @@ const Socket::CONNECTION_TYPE& Socket::getType() const {
 	return _type;
 }
 
+
+// Protected
+bool Socket::_initializeSocketId(const CONNECTION_TYPE type, const CONNECTION_MODE mode) {
+	bool success = true;
+
+	// Type define id
+	_type = type;
+	_mode = mode;
+
+	// Check ip
+	if (!_ipGateway.isValide() || _ipGateway.isNull() || _ipType == IpAdress::INVALID_IP)
+		_type = NONE;
+
+	// Create socket	
+	auto protoFam = _ipType == IpAdress::IP_V4 ? PF_INET : PF_INET6;
+
+	if (_type == NONE)
+		success = false;
+	else if (_type == TCP)
+		_idSocket = static_cast<int>(socket(protoFam, SOCK_STREAM, IPPROTO_TCP));
+	else if (_type == UDP)
+		_idSocket = static_cast<int>(socket(protoFam, SOCK_DGRAM, 0));
+	else {
+		_type = NONE;
+		std::cout << "Type not recognized." << std::endl;
+		success = false;
+	}
+
+	return success;
+}
 
 int Socket::_changeMode(const CONNECTION_MODE mode, int idSocket) {
 	if(idSocket < 0)

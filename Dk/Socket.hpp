@@ -12,6 +12,7 @@
 	typedef unsigned int SOCKET_LENGTH;
 #elif _WIN32
 	#include <winsock2.h>
+	#include <ws2tcpip.h>
 	
 	typedef int SOCKET_LENGTH;
 #endif
@@ -25,6 +26,7 @@
 #endif
 
 #include <iostream>
+#include "IpAdress.hpp"
 #include "Protocole.hpp"
 
 class Socket {
@@ -44,7 +46,7 @@ public:
 	};
 	
 	// Constructors
-	Socket(const std::string& ipAdress = "localhost", const unsigned short port = 80);
+	Socket(const IpAdress& ipGateway = IpAdress::localhost(IpAdress::IP_V4));
 	virtual ~Socket();
 	
 	// Methods
@@ -57,8 +59,7 @@ public:
 	// Setters
 	
 	// Getters
-	const std::string& getIpAdress() const;
-	const unsigned short& getPort() const;
+	const IpAdress& getIpAdress() const;
 	const int& getId() const;
 	const CONNECTION_TYPE& getType() const;
 	
@@ -74,14 +75,15 @@ public:
 	
 protected:
 	// Methods
+	bool _initializeSocketId(const CONNECTION_TYPE type, const CONNECTION_MODE mode);
 	int _changeMode(const CONNECTION_MODE mode, int socketId = -1);
 	
 	// Members
-	std::string _ipAdress;
-	unsigned short	_port;
+	IpAdress		_ipGateway;
 	int 			_idSocket;
 	CONNECTION_TYPE _type;
 	CONNECTION_MODE _mode;
+	IpAdress::IP_ADRESS_TYPE _ipType;
 };
 
 #endif

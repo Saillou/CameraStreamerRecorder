@@ -10,7 +10,7 @@
 class Server : public Socket {
 public:
 	// Constructors
-	Server(const unsigned short port = 80, const int maxPending = 10);
+	Server(const IpAdress& ipGateway = IpAdress::localhost(IpAdress::IP_V4), const int maxPending = 10);
 	~Server();
 	
 	// Methods

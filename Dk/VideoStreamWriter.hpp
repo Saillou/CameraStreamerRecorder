@@ -8,10 +8,11 @@
 #include <functional>
 #include <map>
 
-#include "../Globals/structures.hpp"
+#include "structures.hpp"
 #include "Protocole.hpp"
 #include "ManagerConnection.hpp"
 #include "Chronometre.hpp"
+#include "IpAdress.hpp"
 
 
 namespace Dk {
@@ -19,7 +20,7 @@ namespace Dk {
 	class VideoStreamWriter {
 	public:
 		// Constructors
-		VideoStreamWriter(ManagerConnection& managerConnection, const int port, const std::string& name = "WiFi device");
+		VideoStreamWriter(ManagerConnection& managerConnection, const IpAdress& ipGateway, const std::string& name = "WiFi device");
 		~VideoStreamWriter();
 		
 		// Methods
