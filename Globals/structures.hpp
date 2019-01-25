@@ -29,6 +29,7 @@ namespace Gb {
 		Frame& operator=(const Frame& f) {
 			buffer = f.buffer;
 			size = f.size;
+			return *this;
 		}
 		~Frame() {
 			buffer.clear();

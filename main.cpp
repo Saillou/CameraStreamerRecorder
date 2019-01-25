@@ -2,6 +2,9 @@
 #include <fstream>
 #include <csignal>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "Globals/structures.hpp"
 #include "Dk/Chronometre.hpp"
 #include "Dk/ManagerConnection.hpp"
@@ -11,12 +14,28 @@
 
 // Globals
 bool G_stop = false;
-std::string G_experimentId = "";
+std::string G_experimentFolder = "";
 
 static void signalHandler(int signum) {
 	std::cout << "\nInterrupt" << std::endl;
 	G_stop = true;
 }
+
+static bool dirExists(const std::string& path) {
+	struct stat info;
+	
+	if(stat(path.c_str(), &info) != 0)
+		return false;
+	
+	if(info.st_mode & S_IFDIR)
+		return true;
+		
+	return false;
+}
+static bool createDir(const std::string& path) {
+	return mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != -1;
+}
+
 static void displayHelp () {
 	std::cout << " ==================== H E L P =================== " << std::endl;
 	std::cout << "Available options: " << std::endl;
@@ -37,14 +56,15 @@ static bool existsOption(int argc, char* argv[], const std::string& option) {
 static void onCalibration(int idClient, const Protocole::BinMessage& msg) {
 	std::cout << "Calibration received." << std::endl;
 	if(msg.getSize() > 0) {
-		//~ std::vector<char> rawKey = msg.getData();
-		//~ rawKey.push_back(0); // null terminated
-		
-		//~ std::cout << "\t - Experiment key: " << G_experimentId << std::endl;
-		//~ std::cout << "\t - Calibration Key: " << std::string(rawKey.data()) << std::endl;
+		if(!dirExists(G_experimentFolder)) {
+			if(!createDir(G_experimentFolder)) {
+				std::cout << "Failed to created dir for calibration" << std::endl;
+				return;
+			}
+		}
 		
 		std::ofstream fileCalib;
-		fileCalib.open("Calibration_"+G_experimentId+".bin", std::ios::binary | std::ios::trunc);
+		fileCalib.open(G_experimentFolder+"/Calibration.bin", std::ios::binary | std::ios::trunc);
 		fileCalib.write(msg.getData().data(), msg.getSize());
 		fileCalib.close();
 	}
@@ -66,7 +86,11 @@ int main(int argc, char* argv[]) {
 	
 	// --------------- Interface -------------	
 	signal(SIGINT, signalHandler);
-	G_experimentId = Chronometre::date();
+	G_experimentFolder = "../BarnaclesManager/root/"+Chronometre::date();
+	
+	if(!dirExists(G_experimentFolder)) 
+		if(!createDir(G_experimentFolder)) 
+			std::cout << "Failed to created directory" << std::endl;
 		
 	// --------------- Devices -------------
 	DeviceMT device0("/dev/video0");
@@ -82,8 +106,15 @@ int main(int argc, char* argv[]) {
 	ManagerConnection managerConnection;
 	managerConnection.initialize();
 	
-	Dk::VideoStreamWriter videoStreamer0(managerConnection, 3000, "WiFi Device - 0");	
-	Dk::VideoStreamWriter videoStreamer1(managerConnection, 3001, "WiFi Device - 1");
+	IpAdress ip0(managerConnection.getGatewayAdress(IpAdress::IP_V6)); 
+	IpAdress ip1(managerConnection.getGatewayAdress(IpAdress::IP_V6)); 
+	
+	ip0.setPort(3000);
+	ip1.setPort(3001);
+	
+	Dk::VideoStreamWriter videoStreamer0(managerConnection, ip0, "WiFi Device - 0");	
+	Dk::VideoStreamWriter videoStreamer1(managerConnection, ip1, "WiFi Device - 1");
+	
 	
 	if(device0.isOpen() && enableStream) {
 		videoStreamer0.startBroadcast(device0.getSize(), 3);
@@ -100,10 +131,10 @@ int main(int argc, char* argv[]) {
 	MovieWriter movieWriter1;
 	
 	if(device0.isOpen() && enableRecord)
-		movieWriter0.start("Video0_" + G_experimentId, device0.getSize(), device0.getFps());
+		movieWriter0.start(G_experimentFolder+"/Video0", device0.getSize(), device0.getFps());
 		
 	if(device1.isOpen() && enableRecord)
-		movieWriter1.start("Video1_" + G_experimentId, device1.getSize(), device1.getFps());
+		movieWriter1.start(G_experimentFolder+"/Video1", device1.getSize(), device1.getFps());
 	
 
 	// --------------- Looping -------------

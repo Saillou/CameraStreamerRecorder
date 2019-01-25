@@ -43,7 +43,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	// Stream
 	resAction = avformat_alloc_output_context2(&_fc, NULL, NULL, _fileName.c_str());
 	if(resAction < 0) {
-		std::cout << "Couldn't alloc output contex" << std::endl;
+		std::cout << "Couldn't alloc output contex [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
@@ -65,7 +65,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 			
 	resAction = avcodec_open2(_cc, _codec, &_opt);
 	if(resAction < 0) {
-		std::cout << "Couldn't open codec" << std::endl;
+		std::cout << "Couldn't open codec [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
@@ -73,7 +73,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	
 	resAction = avio_open(&_fc->pb, _fileName.c_str(), AVIO_FLAG_WRITE);
 	if(resAction < 0) {
-		std::cout << "Couldn't open format context" << std::endl;
+		std::cout << "Couldn't open format context [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
@@ -93,7 +93,7 @@ bool Recorder::open(const std::string& fileName, const Gb::Size& size, double fp
 	
 	resAction = av_frame_get_buffer(_inFrame, 1);
 	if(resAction < 0) {
-		std::cout << "Couldn't alloc frame memory" << std::endl;
+		std::cout << "Couldn't alloc frame memory [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
@@ -149,7 +149,7 @@ bool Recorder::write(Gb::Frame& frame) {
 	
 	resAction = avcodec_decode_video2(_inCc, _inFrame, &_gotInput, &inPacket);
 	if(resAction < 0) {
-		std::cout << "Couldn't decode packet" << std::endl;
+		std::cout << "Couldn't decode packet [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
@@ -161,7 +161,7 @@ bool Recorder::write(Gb::Frame& frame) {
 	
 	resAction = avcodec_encode_video2(_cc, &_packetOut, _inFrame, &_gotOutput);
 	if(resAction < 0) {
-		std::cout << "Couldn't encode frame" << std::endl;
+		std::cout << "Couldn't encode frame [error:" << resAction << "]" << std::endl;
 		return false;
 	}
 	
