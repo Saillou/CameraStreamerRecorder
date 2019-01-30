@@ -60,6 +60,19 @@ bool Socket::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 		size = sizeof(clientEchoV6);
 	}
 	
+	// Timeout
+#ifdef __linux__ 
+		struct timeval tvWait;
+		tvWait.tv_sec = 1;
+		tvWait.tv_usec = 0;
+		setsockopt(_idSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tvWait, sizeof(tvWait));
+		setsockopt(_idSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tvWait, sizeof(tvWait));
+#else
+		DWORD timeout = 1 * 1000;
+		setsockopt(_idSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+		setsockopt(_idSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
+#endif
+	
 	// Use the mode defined
 	_changeMode(mode);
 	
@@ -132,9 +145,10 @@ bool Socket::read(Protocole::BinMessage& msg, int idSocket) const {
 		if((received = recv(idSocket, buffer, Protocole::BinMessage::SIZE_SIZE, 0)) == (int)Protocole::BinMessage::SIZE_SIZE) {
 			messageSize = Protocole::BinMessage::Read_256(buffer, Protocole::BinMessage::SIZE_SIZE);
 		}
-		else // Error size
+		else {// Error size
+			//~ std::cout << "Size error" << std::endl;
 			return false;
-
+		}
 		// Message code
 		received = -1;
 		buffer = (char*)realloc(buffer, Protocole::BinMessage::SIZE_CODE * sizeof(char));
@@ -142,8 +156,10 @@ bool Socket::read(Protocole::BinMessage& msg, int idSocket) const {
 		if((received = recv(idSocket, buffer, Protocole::BinMessage::SIZE_CODE, 0)) == (int)Protocole::BinMessage::SIZE_CODE) {
 			messageCode = Protocole::BinMessage::Read_256(buffer, Protocole::BinMessage::SIZE_CODE);
 		}
-		else // Error size
+		else {// Error code
+			std::cout << "Code error" << std::endl;
 			return false;
+		}
 		
 		// Message data
 		size_t already_read = 0;
@@ -162,12 +178,15 @@ bool Socket::read(Protocole::BinMessage& msg, int idSocket) const {
 		free(buffer);
 
 		// Result
+		if(!msg.isValide())
+			std::cout << "Invalide message error" << std::endl;
 		return msg.isValide();
 	}
-	if(_type == UDP) {
+	else if(_type == UDP) {
 		// Not implemented yet
 	}
 	
+	std::cout << "Weird error" << std::endl;
 	return false;
 }
 bool Socket::write(const Protocole::BinMessage& msg, int idSocket) const {

@@ -49,6 +49,19 @@ bool Server::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 		size = sizeof(serverEchoV6);
 	}
 	
+	// Timeout
+#ifdef __linux__ 
+		struct timeval tvWait;
+		tvWait.tv_sec = 1;
+		tvWait.tv_usec = 0;
+		setsockopt(_idSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tvWait, sizeof(tvWait));
+		setsockopt(_idSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tvWait, sizeof(tvWait));
+#else
+		DWORD timeout = 1 * 1000;
+		setsockopt(_idSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+		setsockopt(_idSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
+#endif
+	
 	// Try bind
 	if (bind(_idSocket, serverEcho, size) == SOCKET_ERROR) {
 		std::cout << "Could not bind adress." << std::endl;
@@ -67,7 +80,7 @@ bool Server::initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode)	
 }
 
 int Server::waitClient(long ms) {
-	int clientId = -1;
+	int clientId = 0;
 	bool criticError = false;
 	
 	if(_idSocket <= 0 || _type == NONE) {
@@ -87,11 +100,15 @@ int Server::waitClient(long ms) {
 			criticError = true;
 			
 			// Maybe we can solve the error
-#ifdef _WIN32
-			int error = WSAGetLastError();
-			
+#ifdef __linux__ 
+			int error = errno;
+			const int errorCode = EWOULDBLOCK;
+#else	
+			int error = WSAGetLastError();	
+			const int errorCode = WSAEWOULDBLOCK;
+#endif
 			switch(error) {
-				case WSAEWOULDBLOCK: // Only triggered during not_blocking operations
+				case errorCode: // Only triggered during not_blocking operations
 					{ // Wait to be connected and check readable
 						auto info = waitForAccess(ms);
 						criticError = info.errorCode < 0;
@@ -101,14 +118,18 @@ int Server::waitClient(long ms) {
 				default:
 					std::cout << "Error not treated: " << error << std::endl;
 				break;
-			}
-#endif
+			}	
+			
+			errno = 0;		
 		}
 		
 		// Put back the socket in the defined mode
 		if(ms > 0 && _mode == Socket::BLOCKING) {
 			_changeMode(Socket::BLOCKING);
 		}
+		
+		if(clientId <= 0)
+			criticError = true;
 	}
 	else if(_type == UDP) {
 		// What to do?
@@ -118,7 +139,7 @@ int Server::waitClient(long ms) {
 	}
 	
 	// Everything is correct
-	if(!criticError && clientId > 0) {		
+	if(!criticError) {		
 		// Want same mode as server
 		_changeMode(_mode, clientId);
 		
@@ -126,10 +147,18 @@ int Server::waitClient(long ms) {
 		_idScketsConnected.push_back(clientId);
 	}
 	
-	return clientId;
+	return criticError ? 0 : clientId;
+}
+
+int Server::nextClient() const {
+	if(_idScketsConnected.empty())
+		return 0;
+	else
+		return _idScketsConnected[0];
 }
 
 void Server::closeSocket(int& idSocket) {
+	std::cout << "Close socket" << idSocket << std::endl;
 	if(idSocket > 0) {
 		// Remove from list
 		for(size_t i = 0; i < _idScketsConnected.size(); i++) {

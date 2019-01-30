@@ -8,7 +8,7 @@
 #include <functional>
 #include <map>
 
-#include "structures.hpp"
+#include "../Globals/structures.hpp"
 #include "Protocole.hpp"
 #include "ManagerConnection.hpp"
 #include "Chronometre.hpp"

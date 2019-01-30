@@ -25,22 +25,23 @@ VideoStreamWriter::~VideoStreamWriter() {
 
 // Methods
 void VideoStreamWriter::handleClients() {
-	std::cout << "Wait for clients";
+	std::cout << "Wait for clients" << std::endl;
 	
 	while(_atomRunning) {	
-		int idClient = _server->waitClient(5);
+		int idClient = _server->nextClient();
 		
-		if(idClient <= 0) {			
-			std::cout << ".";
-			Chronometre::wait(350);
-		}
-		else {
+		// Wait a new client
+		if(idClient <= 0)
+			idClient = _server->waitClient(350);
+		
+
+		if(idClient > 0) {
 			_handleClient(idClient);
 		}	
 		
 		// Update state		
 		if(_atomRunning && idClient > 0)
-			std::cout << "Wait for clients";
+			std::cout << "Wait for clients" << std::endl;
 	} 
 }
 
@@ -49,19 +50,29 @@ void VideoStreamWriter::_handleClient(int idClient) {
 	
 	// -- Handle client --
 	bool clientWantToQuit = false;
+
 	do {		
 		// Deals with the socket
 		BinMessage msg;
-		if(!_server->read(msg, idClient)) 
-			break;	// Error, better to disconnect
-
+		if(!_server->read(msg, idClient)) {
+			if(errno == EWOULDBLOCK) { // timesup
+				errno = 0;
+				if(_server->waitClient(350) > 0) { // new client !
+					break;
+				}
+			}
+			else { // error
+				break;
+			}
+		}
+		
 		// Treat client
 		_invokeCallbacks(idClient, msg);
 		clientWantToQuit = _treatClient(idClient, msg);
-	} while(!clientWantToQuit);
+	} while(!clientWantToQuit && _atomRunning);
 	
 	_server->closeSocket(idClient);
-	std::cout << "Client disconnected." << std::endl;	
+	std::cout << "Client disconnected. (" << clientWantToQuit << ")" << std::endl;	
 }
 
 bool VideoStreamWriter::_treatClient(const int idClient, const BinMessage& msgIn) {

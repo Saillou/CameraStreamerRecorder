@@ -15,9 +15,13 @@ public:
 	
 	// Methods
 	bool initialize(const CONNECTION_TYPE type, const CONNECTION_MODE mode) override;
+	
 	int waitClient(long ms = -1);
+	int nextClient() const;
+	
 	void closeSocket(int& idSocket);
 	void closeAll();
+	
 	
 protected:
 	// Methods
